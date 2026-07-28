@@ -22,6 +22,15 @@ module.exports = (sequelize, DataTypes) => {
         notNull: {
           msg: 'License plate is required',
         },
+        notEmpty: {
+          msg: 'License plate cannot be empty',
+        },
+        async isUnique(value) {
+          const car = await Car.findOne({ where: { licensePlate: value } });
+          if (car) {
+            throw new Error('License plate already exist, please check');
+          }
+        }
       },
     },
     brand: {
@@ -30,6 +39,9 @@ module.exports = (sequelize, DataTypes) => {
       validate: {
         notNull: {
           msg: 'Brand is required',
+        },
+        notEmpty: {
+          msg: 'Brand cannot be empty',
         },
       },
     },
@@ -40,13 +52,20 @@ module.exports = (sequelize, DataTypes) => {
         notNull: {
           msg: 'Daily rate is required',
         },
+        isDecimal: {
+          msg: 'Daily rate has to be a number',
+        },
+        min: {
+          args: [[1]],
+          msg: 'Daily rate must >= 1',
+        }
       },
     },
     status: {
       type: DataTypes.ENUM('AVAILABLE', 'RENTED', 'MAINTAINING'),
       defaultValue: 'AVAILABLE',
       validate: {
-        notIn: {
+        isIn: {
           args: [['AVAILABLE', 'RENTED', 'MAINTAINING']],
           msg: 'Illegal status, can only be one of AVAILABLE, RENTED, MAINTAINING',
         },

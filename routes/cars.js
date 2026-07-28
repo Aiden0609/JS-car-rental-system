@@ -2,6 +2,7 @@ const express = require('express');
 const { Car } = require('../models');
 const router = express.Router();
 const { Op } = require('sequelize');
+const { NotFound } = require('http-errors');
 
 /* GET cars listing.
 * GET '/cars' */
@@ -63,6 +64,108 @@ router.get('/', async function(req, res, next) {
       });
   }
 });
+
+/* GET '/cars/:id' */
+router.get('/:id', async function(req, res, next) {
+  try {
+      const car = await getCar(req);
+
+      res.json({
+          status: true,
+          message: 'Car retrieved successfully',
+          data: car
+      });
+
+  } catch (error) {
+      res.status(500).json({
+          status: false,
+          message: `Error retrieving car`,
+          errors: [error.message]
+      });
+  }
+});
+
+/* POST '/cars'
+* Record a new car */
+router.post('/', async function(req, res, next) {
+    try {
+        const body = filterBody(req);
+
+        const carData = { brand: body.brand, licensePlate: body.licensePlate, dailyRate: body.dailyRate };
+        if (body.status) carData.status = body.status;
+
+        const car = await Car.create(carData);
+        res.json({
+            status: true,
+            message: 'Car created successfully',
+            data: car
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: false,
+            message: `Error creating car`,
+            errors: [error.message]
+        });
+    }
+});
+
+/* PUT '/cars/:id'
+* Update a car */
+router.put('/:id', async function(req, res, next) {
+    try {
+        const body = filterBody(req);
+
+        const carData = { brand: body.brand, licensePlate: body.licensePlate, dailyRate: body.dailyRate };
+        if (body.status) carData.status = body.status;
+
+        const car = await getCar(req);
+        await car.update(carData);
+
+        res.json({
+            status: true,
+            message: 'Car updated successfully',
+            data: car
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: false,
+            message: `Error updating car`,
+            errors: [error.message]
+        });
+    }
+});
+
+/* POST '/cars/:id'
+* Delete a car */
+router.post('/:id', async function(req, res, next) {
+    try {
+        const car = await getCar(req);
+        if (car.status === 'RENTED') {
+            throw new Error('Car currently in use');
+        }
+        await car.destroy();
+
+        res.json({
+            status: true,
+            message: 'Car deleted successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: false,
+            message: `Error deleting car`,
+            errors: [error.message]
+        });
+    }
+});
+
+async function getCar(req) {
+    const { id } = req.params;
+    const car = await Car.findByPk(id);
+    if (!car) {
+        throw new NotFound(`Car with id ${id} not found`);
+    }
+    return car;
+}
 
 /* Public function
  * Filter the body of the request
