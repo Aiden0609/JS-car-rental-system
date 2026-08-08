@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>客户管理 · 汽车租赁管理系统</title>
+    <link rel="stylesheet" href="/stylesheets/style.css" />
+  </head>
+  <body>
+    <header class="navbar">
+      <div class="brand">🚗 <span>汽车租赁管理系统</span></div>
+      <nav>
+        <a href="/">首页</a>
+        <a href="/cars.html">车辆管理</a>
+        <a href="/customers.html" class="active">客户管理</a>
+        <a href="/rentals.html">租赁管理</a>
+      </nav>
+    </header>
+
+    <main class="container">
+      <div class="page-header">
+        <div>
+          <h1>客户管理</h1>
+          <div class="sub">客户的增删改查与信息检索</div>
+        </div>
+        <button class="btn btn-primary" onclick="openCreate()">+ 新增客户</button>
+      </div>
+
+      <div class="card">
+        <form class="filters" id="filter-form">
+          <div class="field">
+            <label>姓名</label>
+            <input type="text" name="name" placeholder="如：张三" />
+          </div>
+          <div class="field">
+            <label>电话</label>
+            <input type="text" name="phone" placeholder="如：13800000000" />
+          </div>
+          <div class="field">
+            <label>驾驶证号</label>
+            <input type="text" name="driversLicense" placeholder="驾驶证号" />
+          </div>
+          <div class="field">
+            <button class="btn btn-primary" type="submit">查询</button>
+            <button class="btn" type="button" onclick="resetFilters()">重置</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>姓名</th>
+                <th>电话</th>
+                <th>驾驶证号</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="customer-list"><tr><td colspan="5" class="loading">加载中…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+
+    <!-- 新增 / 编辑 弹窗 -->
+    <div class="modal" id="edit-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2 id="edit-title">新增客户</h2>
+          <button class="modal-close" data-close="edit-modal">&times;</button>
+        </div>
+        <form id="customer-form">
+          <div class="modal-body">
+            <input type="hidden" name="id" />
+            <div class="field">
+              <label>姓名 *</label>
+              <input type="text" name="name" required maxlength="50" placeholder="如：张三" />
+            </div>
+            <div class="field">
+              <label>电话 *</label>
+              <input type="text" name="phone" required maxlength="20" placeholder="如：13800000000" />
+            </div>
+            <div class="field">
+              <label>驾驶证号 *</label>
+              <input type="text" name="driversLicense" required maxlength="30" placeholder="驾驶证号（唯一）" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" type="button" data-close="edit-modal">取消</button>
+            <button class="btn btn-primary" type="submit">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 详情弹窗 -->
+    <div class="modal" id="detail-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2>客户详情</h2>
+          <button class="modal-close" data-close="detail-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-list">
+            <div class="detail-row"><span class="k">ID</span><span class="v" id="d-id"></span></div>
+            <div class="detail-row"><span class="k">姓名</span><span class="v" id="d-name"></span></div>
+            <div class="detail-row"><span class="k">电话</span><span class="v" id="d-phone"></span></div>
+            <div class="detail-row"><span class="k">驾驶证号</span><span class="v" id="d-driversLicense"></span></div>
+            <div class="detail-row"><span class="k">创建时间</span><span class="v" id="d-createdAt"></span></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" data-close="detail-modal">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/js/common.js"></script>
+    <script>
+      let currentPage = 1;
+      let editingId = null;
+
+      function buildQuery(page) {
+        const data = new FormData(document.getElementById('filter-form'));
+        const params = new URLSearchParams();
+        params.set('currentPage', page);
+        params.set('pageSize', 10);
+        for (const [k, v] of data) {
+          if (v) params.set(k, v);
+        }
+        return params.toString();
+      }
+
+      async function load(page = 1) {
+        currentPage = page;
+        const box = document.getElementById('customer-list');
+        box.innerHTML = '<tr><td colspan="5" class="loading">加载中…</td></tr>';
+        try {
+          const data = await api(`/customers?${buildQuery(page)}`);
+          render(data.customers);
+          renderPagination(data.pagination, load);
+        } catch (e) {
+          box.innerHTML = `<tr><td colspan="5" class="empty">${esc(e.message)}</td></tr>`;
+        }
+      }
+
+      function render(list) {
+        const box = document.getElementById('customer-list');
+        if (!list.length) {
+          box.innerHTML = '<tr><td colspan="5" class="empty">暂无数据</td></tr>';
+          return;
+        }
+        box.innerHTML = list
+          .map(
+            (c) => `<tr>
+              <td>${c.id}</td>
+              <td>${esc(c.name)}</td>
+              <td>${esc(c.phone)}</td>
+              <td>${esc(c.driversLicense)}</td>
+              <td>
+                <div class="actions">
+                  <button class="btn-link" onclick="viewDetail(${c.id})">查看</button>
+                  <button class="btn-link" onclick="openEdit(${c.id})">编辑</button>
+                  <button class="btn-link danger" onclick="removeCustomer(${c.id})">删除</button>
+                </div>
+              </td>
+            </tr>`,
+          )
+          .join('');
+      }
+
+      function openCreate() {
+        editingId = null;
+        document.getElementById('edit-title').textContent = '新增客户';
+        document.getElementById('customer-form').reset();
+        openModal('edit-modal');
+      }
+
+      async function openEdit(id) {
+        editingId = id;
+        document.getElementById('edit-title').textContent = `编辑客户 #${id}`;
+        const { customer } = await api(`/customers/${id}`);
+        const f = document.getElementById('customer-form');
+        f.elements.id.value = customer.id;
+        f.elements.name.value = customer.name;
+        f.elements.phone.value = customer.phone;
+        f.elements.driversLicense.value = customer.driversLicense;
+        openModal('edit-modal');
+      }
+
+      async function viewDetail(id) {
+        const { customer } = await api(`/customers/${id}`);
+        fill('#d-id', customer.id);
+        fill('#d-name', customer.name);
+        fill('#d-phone', customer.phone);
+        fill('#d-driversLicense', customer.driversLicense);
+        fill('#d-createdAt', fmtDate(customer.createdAt));
+        openModal('detail-modal');
+      }
+
+      async function removeCustomer(id) {
+        if (!confirm(`确定删除客户 #${id} 吗？`)) return;
+        try {
+          await api(`/customers/${id}`, { method: 'DELETE' });
+          toast('删除成功');
+          load(currentPage);
+        } catch (e) {
+          toast(e.message, 'error');
+        }
+      }
+
+      document.getElementById('customer-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = e.target;
+        const body = {
+          name: f.elements.name.value.trim(),
+          phone: f.elements.phone.value.trim(),
+          driversLicense: f.elements.driversLicense.value.trim(),
+        };
+        try {
+          if (editingId) {
+            await api(`/customers/${editingId}`, { method: 'PUT', body });
+            toast('客户更新成功');
+          } else {
+            await api('/customers', { method: 'POST', body });
+            toast('客户新增成功');
+          }
+          closeModal('edit-modal');
+          load(1);
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+
+      document.getElementById('filter-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        load(1);
+      });
+
+      function resetFilters() {
+        document.getElementById('filter-form').reset();
+        load(1);
+      }
+
+      load(1);
+    </script>
+  </body>
+</html>

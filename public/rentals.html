@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>租赁管理 · 汽车租赁管理系统</title>
+    <link rel="stylesheet" href="/stylesheets/style.css" />
+  </head>
+  <body>
+    <header class="navbar">
+      <div class="brand">🚗 <span>汽车租赁管理系统</span></div>
+      <nav>
+        <a href="/">首页</a>
+        <a href="/cars.html">车辆管理</a>
+        <a href="/customers.html">客户管理</a>
+        <a href="/rentals.html" class="active">租赁管理</a>
+      </nav>
+    </header>
+
+    <main class="container">
+      <div class="page-header">
+        <div>
+          <h1>租赁管理</h1>
+          <div class="sub">租车的发起、还车与记录维护</div>
+        </div>
+        <button class="btn btn-primary" onclick="openCreate()">+ 发起租赁</button>
+      </div>
+
+      <div class="card">
+        <form class="filters" id="filter-form">
+          <div class="field">
+            <label>状态</label>
+            <select name="status">
+              <option value="">全部</option>
+              <option value="ONGOING">进行中</option>
+              <option value="COMPLETED">已完成</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>客户</label>
+            <select name="customerId" id="filter-customer">
+              <option value="">全部</option>
+            </select>
+          </div>
+          <div class="field">
+            <button class="btn btn-primary" type="submit">查询</button>
+            <button class="btn" type="button" onclick="resetFilters()">重置</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>车辆</th>
+                <th>客户</th>
+                <th>开始时间</th>
+                <th>预计归还</th>
+                <th>实际归还</th>
+                <th>费用</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="rental-list"><tr><td colspan="9" class="loading">加载中…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+
+    <!-- 发起 / 编辑 弹窗 -->
+    <div class="modal" id="edit-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2 id="edit-title">发起租赁</h2>
+          <button class="modal-close" data-close="edit-modal">&times;</button>
+        </div>
+        <form id="rental-form">
+          <div class="modal-body">
+            <input type="hidden" name="id" />
+            <div class="field">
+              <label>车辆 *</label>
+              <select name="carId" id="form-car" required></select>
+              <div class="sub" id="form-car-hint" style="font-size: 12px"></div>
+            </div>
+            <div class="field">
+              <label>客户 *</label>
+              <select name="customerId" id="form-customer" required></select>
+            </div>
+            <div class="field">
+              <label>预计归还时间 *</label>
+              <input type="datetime-local" name="expectedReturnDate" required />
+            </div>
+            <div class="field" id="actual-return-field">
+              <label>实际归还时间</label>
+              <input type="datetime-local" name="actualReturnDate" />
+              <div class="sub" style="font-size: 12px">仅已完成/归还记录可填写</div>
+            </div>
+            <div class="field" id="status-field">
+              <label>状态</label>
+              <select name="status">
+                <option value="ONGOING">进行中</option>
+                <option value="COMPLETED">已完成</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" type="button" data-close="edit-modal">取消</button>
+            <button class="btn btn-primary" type="submit">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 还车弹窗 -->
+    <div class="modal" id="return-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2>还车</h2>
+          <button class="modal-close" data-close="return-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-list" style="margin-bottom: 16px">
+            <div class="detail-row"><span class="k">租赁编号</span><span class="v" id="r-id"></span></div>
+            <div class="detail-row"><span class="k">车辆</span><span class="v" id="r-car"></span></div>
+            <div class="detail-row"><span class="k">客户</span><span class="v" id="r-customer"></span></div>
+            <div class="detail-row"><span class="k">开始时间</span><span class="v" id="r-start"></span></div>
+            <div class="detail-row"><span class="k">日租金</span><span class="v" id="r-rate"></span></div>
+          </div>
+          <div class="field">
+            <label>实际归还时间（留空则默认当前时间）</label>
+            <input type="datetime-local" id="return-date" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" data-close="return-modal">取消</button>
+          <button class="btn btn-primary" onclick="submitReturn()">确认还车</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 详情弹窗 -->
+    <div class="modal" id="detail-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2>租赁详情</h2>
+          <button class="modal-close" data-close="detail-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-list">
+            <div class="detail-row"><span class="k">ID</span><span class="v" id="d-id"></span></div>
+            <div class="detail-row"><span class="k">车辆</span><span class="v" id="d-car"></span></div>
+            <div class="detail-row"><span class="k">客户</span><span class="v" id="d-customer"></span></div>
+            <div class="detail-row"><span class="k">开始时间</span><span class="v" id="d-start"></span></div>
+            <div class="detail-row"><span class="k">预计归还</span><span class="v" id="d-expected"></span></div>
+            <div class="detail-row"><span class="k">实际归还</span><span class="v" id="d-actual"></span></div>
+            <div class="detail-row"><span class="k">费用</span><span class="v" id="d-cost"></span></div>
+            <div class="detail-row"><span class="k">状态</span><span class="v" id="d-status"></span></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" data-close="detail-modal">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/js/common.js"></script>
+    <script>
+      const RENTAL_STATUS = { ONGOING: '进行中', COMPLETED: '已完成' };
+      let currentPage = 1;
+      let editingId = null;
+      let returnRental = null;
+
+      function badge(status) {
+        return `<span class="badge badge-${status.toLowerCase()}">${RENTAL_STATUS[status] || status}</span>`;
+      }
+
+      /* Date → datetime-local 输入框值 */
+      function toLocalInput(v) {
+        if (!v) return '';
+        const d = new Date(v);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+
+      /* 填充下拉选项：车辆（默认仅可用车）与客户 */
+      async function fillOptions(carStatus) {
+        const carParams = carStatus ? `&status=${carStatus}` : '';
+        const [carsData, customersData] = await Promise.all([
+          api(`/cars?pageSize=1000${carParams}`),
+          api('/customers?pageSize=1000'),
+        ]);
+        const carSel = document.getElementById('form-car');
+        carSel.innerHTML = carsData.cars
+          .map((c) => `<option value="${c.id}">${esc(c.brand)} · ${esc(c.licensePlate)}（${STATUS_LABEL(c.status)}）</option>`)
+          .join('');
+        const customerSel = document.getElementById('form-customer');
+        customerSel.innerHTML = customersData.customers
+          .map((c) => `<option value="${c.id}">${esc(c.name)} · ${esc(c.phone)}</option>`)
+          .join('');
+        return { cars: carsData.cars, customers: customersData.customers };
+      }
+
+      function STATUS_LABEL(s) {
+        return ({ AVAILABLE: '可用', RENTED: '已租出', MAINTAINING: '维护中' })[s] || s;
+      }
+
+      function buildQuery(page) {
+        const data = new FormData(document.getElementById('filter-form'));
+        const params = new URLSearchParams();
+        params.set('currentPage', page);
+        params.set('pageSize', 10);
+        for (const [k, v] of data) {
+          if (v) params.set(k, v);
+        }
+        return params.toString();
+      }
+
+      async function load(page = 1) {
+        currentPage = page;
+        const box = document.getElementById('rental-list');
+        box.innerHTML = '<tr><td colspan="9" class="loading">加载中…</td></tr>';
+        try {
+          const data = await api(`/rentals?${buildQuery(page)}`);
+          render(data.rentals);
+          renderPagination(data.pagination, load);
+        } catch (e) {
+          box.innerHTML = `<tr><td colspan="9" class="empty">${esc(e.message)}</td></tr>`;
+        }
+      }
+
+      function render(list) {
+        const box = document.getElementById('rental-list');
+        if (!list.length) {
+          box.innerHTML = '<tr><td colspan="9" class="empty">暂无数据</td></tr>';
+          return;
+        }
+        box.innerHTML = list
+          .map((r) => {
+            const carLabel = r.car ? `${r.car.brand} ${r.car.licensePlate}` : `#${r.carId}`;
+            const customerLabel = r.customer ? r.customer.name : `#${r.customerId}`;
+            const returnBtn =
+              r.status === 'ONGOING'
+                ? `<button class="btn-link" onclick="openReturn(${r.id})">归还</button>`
+                : '';
+            return `<tr>
+              <td>${r.id}</td>
+              <td>${esc(carLabel)}</td>
+              <td>${esc(customerLabel)}</td>
+              <td>${fmtDate(r.createdAt)}</td>
+              <td>${fmtDate(r.expectedReturnDate)}</td>
+              <td>${fmtDate(r.actualReturnDate)}</td>
+              <td>${fmtMoney(r.totalCost)}</td>
+              <td>${badge(r.status)}</td>
+              <td>
+                <div class="actions">
+                  ${returnBtn}
+                  <button class="btn-link" onclick="viewDetail(${r.id})">查看</button>
+                  <button class="btn-link" onclick="openEdit(${r.id})">编辑</button>
+                  <button class="btn-link danger" onclick="removeRental(${r.id})">删除</button>
+                </div>
+              </td>
+            </tr>`;
+          })
+          .join('');
+      }
+
+      async function loadFilterCustomers() {
+        try {
+          const { customers } = await api('/customers?pageSize=1000');
+          document.getElementById('filter-customer').innerHTML =
+            '<option value="">全部</option>' +
+            customers.map((c) => `<option value="${c.id}">${esc(c.name)}（#${c.id}）</option>`).join('');
+        } catch (e) {
+          /* 忽略：筛选下拉加载失败不影响列表 */
+        }
+      }
+
+      async function openCreate() {
+        editingId = null;
+        document.getElementById('edit-title').textContent = '发起租赁';
+        document.getElementById('rental-form').reset();
+        try {
+          const { cars } = await fillOptions('AVAILABLE');
+          if (!cars.length) toast('暂无可用车辆，请先在车辆管理中维护', 'error');
+          document.getElementById('form-car-hint').textContent =
+            cars.length ? '仅显示当前可用的车辆' : '没有可用车辆';
+        } catch (e) {
+          toast(e.message, 'error');
+        }
+        document.getElementById('status-field').style.display = 'none';
+        document.getElementById('actual-return-field').style.display = 'none';
+        openModal('edit-modal');
+      }
+
+      async function openEdit(id) {
+        editingId = id;
+        document.getElementById('edit-title').textContent = `编辑租赁 #${id}`;
+        const { rental } = await api(`/rentals/${id}`);
+        const f = document.getElementById('rental-form');
+        f.elements.id.value = rental.id;
+        // 编辑时展示全部车辆，便于改派
+        await fillOptions();
+        document.getElementById('form-car-hint').textContent = '';
+        f.elements.carId.value = rental.carId;
+        f.elements.customerId.value = rental.customerId;
+        f.elements.expectedReturnDate.value = toLocalInput(rental.expectedReturnDate);
+        f.elements.actualReturnDate.value = toLocalInput(rental.actualReturnDate);
+        f.elements.status.value = rental.status;
+        document.getElementById('status-field').style.display = '';
+        document.getElementById('actual-return-field').style.display = '';
+        openModal('edit-modal');
+      }
+
+      async function openReturn(id) {
+        const { rental } = await api(`/rentals/${id}`);
+        returnRental = rental;
+        fill('#r-id', rental.id);
+        fill('#r-car', rental.car ? `${rental.car.brand} ${rental.car.licensePlate}` : `#${rental.carId}`);
+        fill('#r-customer', rental.customer ? rental.customer.name : `#${rental.customerId}`);
+        fill('#r-start', fmtDate(rental.createdAt));
+        // 租赁列表接口的 car 不包含日租金，单独查一次车辆详情
+        try {
+          const { car } = await api(`/cars/${rental.carId}`);
+          fill('#r-rate', fmtMoney(car.dailyRate));
+        } catch (e) {
+          fill('#r-rate', '—');
+        }
+        document.getElementById('return-date').value = '';
+        openModal('return-modal');
+      }
+
+      async function submitReturn() {
+        const dateVal = document.getElementById('return-date').value;
+        const body = {};
+        if (dateVal) body.actualReturnDate = toISO(dateVal);
+        try {
+          await api(`/rentals/${returnRental.id}/return`, { method: 'POST', body });
+          toast('还车成功，费用已结算');
+          closeModal('return-modal');
+          load(currentPage);
+        } catch (e) {
+          toast(e.message, 'error');
+        }
+      }
+
+      async function viewDetail(id) {
+        const { rental } = await api(`/rentals/${id}`);
+        fill('#d-id', rental.id);
+        fill('#d-car', rental.car ? `${rental.car.brand} ${rental.car.licensePlate}` : `#${rental.carId}`);
+        fill('#d-customer', rental.customer ? rental.customer.name : `#${rental.customerId}`);
+        fill('#d-start', fmtDate(rental.createdAt));
+        fill('#d-expected', fmtDate(rental.expectedReturnDate));
+        fill('#d-actual', fmtDate(rental.actualReturnDate));
+        fill('#d-cost', fmtMoney(rental.totalCost));
+        fill('#d-status', badge(rental.status));
+        openModal('detail-modal');
+      }
+
+      async function removeRental(id) {
+        if (!confirm(`确定删除租赁记录 #${id} 吗？（进行中的租赁无法删除）`)) return;
+        try {
+          await api(`/rentals/${id}`, { method: 'DELETE' });
+          toast('删除成功');
+          load(currentPage);
+        } catch (e) {
+          toast(e.message, 'error');
+        }
+      }
+
+      document.getElementById('rental-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = e.target;
+        const body = {
+          carId: Number(f.elements.carId.value),
+          customerId: Number(f.elements.customerId.value),
+          expectedReturnDate: toISO(f.elements.expectedReturnDate.value),
+        };
+        if (editingId) {
+          body.actualReturnDate = f.elements.actualReturnDate.value ? toISO(f.elements.actualReturnDate.value) : null;
+          body.status = f.elements.status.value;
+        }
+        try {
+          if (editingId) {
+            await api(`/rentals/${editingId}`, { method: 'PUT', body });
+            toast('租赁更新成功');
+          } else {
+            await api('/rentals', { method: 'POST', body });
+            toast('租赁发起成功，车辆已标记为已租出');
+          }
+          closeModal('edit-modal');
+          load(1);
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+
+      document.getElementById('filter-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        load(1);
+      });
+
+      function resetFilters() {
+        document.getElementById('filter-form').reset();
+        load(1);
+      }
+
+      loadFilterCustomers();
+      load(1);
+    </script>
+  </body>
+</html>

@@ -98,6 +98,8 @@ router.post('/:id/return', async function (req, res, next) {
       throw new Conflict('Start date is later than actual return date');
     }
 
+    const car = await Car.findByPk(rental.carId, { transaction: t });
+
     const days = getDaysDiff(startDate, actualReturnDate);
     // console.log(days);
     const totalCost = new Decimal(car.dailyRate).times(days);
@@ -110,7 +112,6 @@ router.post('/:id/return', async function (req, res, next) {
       },
       { transaction: t },
     );
-    const car = await Car.findByPk(rental.carId, { transaction: t });
 
     await car.update({ status: 'AVAILABLE' }, { transaction: t });
 
