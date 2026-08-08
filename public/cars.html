@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>车辆管理 · 汽车租赁管理系统</title>
+    <link rel="stylesheet" href="/stylesheets/style.css" />
+  </head>
+  <body>
+    <header class="navbar">
+      <div class="brand">🚗 <span>汽车租赁管理系统</span></div>
+      <nav>
+        <a href="/">首页</a>
+        <a href="/cars.html" class="active">车辆管理</a>
+        <a href="/customers.html">客户管理</a>
+        <a href="/rentals.html">租赁管理</a>
+      </nav>
+    </header>
+
+    <main class="container">
+      <div class="page-header">
+        <div>
+          <h1>车辆管理</h1>
+          <div class="sub">车辆的增删改查、筛选与状态维护</div>
+        </div>
+        <button class="btn btn-primary" onclick="openCreate()">+ 新增车辆</button>
+      </div>
+
+      <div class="card">
+        <form class="filters" id="filter-form">
+          <div class="field">
+            <label>品牌</label>
+            <input type="text" name="brand" placeholder="如：丰田" />
+          </div>
+          <div class="field">
+            <label>车牌号</label>
+            <input type="text" name="licensePlate" placeholder="如：京A12345" />
+          </div>
+          <div class="field">
+            <label>状态</label>
+            <select name="status">
+              <option value="">全部</option>
+              <option value="AVAILABLE">可用</option>
+              <option value="RENTED">已租出</option>
+              <option value="MAINTAINING">维护中</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>日租金范围</label>
+            <div style="display: flex; gap: 8px; align-items: center">
+              <input type="number" name="dailyRateMin" placeholder="最低" min="0" />
+              <span>-</span>
+              <input type="number" name="dailyRateMax" placeholder="最高" min="0" />
+            </div>
+          </div>
+          <div class="field">
+            <button class="btn btn-primary" type="submit">查询</button>
+            <button class="btn" type="button" onclick="resetFilters()">重置</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>车牌号</th>
+                <th>品牌</th>
+                <th>日租金</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="car-list"><tr><td colspan="6" class="loading">加载中…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+
+    <!-- 新增 / 编辑 弹窗 -->
+    <div class="modal" id="edit-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2 id="edit-title">新增车辆</h2>
+          <button class="modal-close" data-close="edit-modal">&times;</button>
+        </div>
+        <form id="car-form">
+          <div class="modal-body">
+            <input type="hidden" name="id" />
+            <div class="field">
+              <label>车牌号 *</label>
+              <input type="text" name="licensePlate" required maxlength="20" placeholder="如：京A12345" />
+            </div>
+            <div class="field">
+              <label>品牌 *</label>
+              <input type="text" name="brand" required maxlength="50" placeholder="如：丰田" />
+            </div>
+            <div class="field">
+              <label>日租金（元）*</label>
+              <input type="number" name="dailyRate" required min="1" step="0.01" placeholder="如：300" />
+            </div>
+            <div class="field">
+              <label>状态</label>
+              <select name="status">
+                <option value="AVAILABLE">可用</option>
+                <option value="RENTED">已租出</option>
+                <option value="MAINTAINING">维护中</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" type="button" data-close="edit-modal">取消</button>
+            <button class="btn btn-primary" type="submit">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 详情弹窗 -->
+    <div class="modal" id="detail-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2>车辆详情</h2>
+          <button class="modal-close" data-close="detail-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-list">
+            <div class="detail-row"><span class="k">ID</span><span class="v" id="d-id"></span></div>
+            <div class="detail-row"><span class="k">车牌号</span><span class="v" id="d-licensePlate"></span></div>
+            <div class="detail-row"><span class="k">品牌</span><span class="v" id="d-brand"></span></div>
+            <div class="detail-row"><span class="k">日租金</span><span class="v" id="d-dailyRate"></span></div>
+            <div class="detail-row"><span class="k">状态</span><span class="v" id="d-status"></span></div>
+            <div class="detail-row"><span class="k">创建时间</span><span class="v" id="d-createdAt"></span></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" data-close="detail-modal">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/js/common.js"></script>
+    <script>
+      const STATUS_MAP = { AVAILABLE: '可用', RENTED: '已租出', MAINTAINING: '维护中' };
+
+      let currentPage = 1;
+      let editingId = null;
+
+      function badge(status) {
+        return `<span class="badge badge-${status.toLowerCase()}">${STATUS_MAP[status] || status}</span>`;
+      }
+
+      function buildQuery(page) {
+        const data = new FormData(document.getElementById('filter-form'));
+        const params = new URLSearchParams();
+        params.set('currentPage', page);
+        params.set('pageSize', 10);
+        for (const [k, v] of data) {
+          if (v) params.set(k, v);
+        }
+        return params.toString();
+      }
+
+      async function load(page = 1) {
+        currentPage = page;
+        const box = document.getElementById('car-list');
+        box.innerHTML = '<tr><td colspan="6" class="loading">加载中…</td></tr>';
+        try {
+          const data = await api(`/cars?${buildQuery(page)}`);
+          render(data.cars);
+          renderPagination(data.pagination, load);
+        } catch (e) {
+          box.innerHTML = `<tr><td colspan="6" class="empty">${esc(e.message)}</td></tr>`;
+        }
+      }
+
+      function render(list) {
+        const box = document.getElementById('car-list');
+        if (!list.length) {
+          box.innerHTML = '<tr><td colspan="6" class="empty">暂无数据</td></tr>';
+          return;
+        }
+        box.innerHTML = list
+          .map(
+            (c) => `<tr>
+              <td>${c.id}</td>
+              <td>${esc(c.licensePlate)}</td>
+              <td>${esc(c.brand)}</td>
+              <td>${fmtMoney(c.dailyRate)}</td>
+              <td>${badge(c.status)}</td>
+              <td>
+                <div class="actions">
+                  <button class="btn-link" onclick="viewDetail(${c.id})">查看</button>
+                  <button class="btn-link" onclick="openEdit(${c.id})">编辑</button>
+                  <button class="btn-link danger" onclick="removeCar(${c.id})">删除</button>
+                </div>
+              </td>
+            </tr>`,
+          )
+          .join('');
+      }
+
+      function openCreate() {
+        editingId = null;
+        document.getElementById('edit-title').textContent = '新增车辆';
+        document.getElementById('car-form').reset();
+        document.querySelector('#car-form select[name="status"]').value = 'AVAILABLE';
+        openModal('edit-modal');
+      }
+
+      async function openEdit(id) {
+        editingId = id;
+        document.getElementById('edit-title').textContent = `编辑车辆 #${id}`;
+        const { car } = await api(`/cars/${id}`);
+        const f = document.getElementById('car-form');
+        f.elements.id.value = car.id;
+        f.elements.licensePlate.value = car.licensePlate;
+        f.elements.brand.value = car.brand;
+        f.elements.dailyRate.value = car.dailyRate;
+        f.elements.status.value = car.status;
+        openModal('edit-modal');
+      }
+
+      async function viewDetail(id) {
+        const { car } = await api(`/cars/${id}`);
+        fill('#d-id', car.id);
+        fill('#d-licensePlate', car.licensePlate);
+        fill('#d-brand', car.brand);
+        fill('#d-dailyRate', fmtMoney(car.dailyRate));
+        fill('#d-status', badge(car.status));
+        fill('#d-createdAt', fmtDate(car.createdAt));
+        openModal('detail-modal');
+      }
+
+      async function removeCar(id) {
+        if (!confirm(`确定删除车辆 #${id} 吗？（已租出的车辆无法删除）`)) return;
+        try {
+          await api(`/cars/${id}`, { method: 'DELETE' });
+          toast('删除成功');
+          load(currentPage);
+        } catch (e) {
+          toast(e.message, 'error');
+        }
+      }
+
+      document.getElementById('car-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = e.target;
+        const body = {
+          licensePlate: f.elements.licensePlate.value.trim(),
+          brand: f.elements.brand.value.trim(),
+          dailyRate: Number(f.elements.dailyRate.value),
+          status: f.elements.status.value,
+        };
+        try {
+          if (editingId) {
+            await api(`/cars/${editingId}`, { method: 'PUT', body });
+            toast('车辆更新成功');
+          } else {
+            await api('/cars', { method: 'POST', body });
+            toast('车辆新增成功');
+          }
+          closeModal('edit-modal');
+          load(1);
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+
+      document.getElementById('filter-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        load(1);
+      });
+
+      function resetFilters() {
+        document.getElementById('filter-form').reset();
+        load(1);
+      }
+
+      load(1);
+    </script>
+  </body>
+</html>
