@@ -2,29 +2,39 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('Cars', {
+    await queryInterface.createTable('Rentals', {
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.INTEGER.UNSIGNED,
       },
-      licensePlate: {
-        type: Sequelize.STRING(20),
+      carId: {
         allowNull: false,
-        unique: true,
+        type: Sequelize.INTEGER.UNSIGNED,
       },
-      brand: {
-        type: Sequelize.STRING(50),
+      customerId: {
         allowNull: false,
+        type: Sequelize.INTEGER.UNSIGNED,
       },
-      dailyRate: {
-        type: Sequelize.DECIMAL(10, 2).UNSIGNED,
+      startDate: {
         allowNull: false,
+        type: Sequelize.DATE,
+      },
+      expectedReturnDate: {
+        allowNull: false,
+        type: Sequelize.DATE,
+      },
+      actualReturnDate: {
+        type: Sequelize.DATE,
+      },
+      totalCost: {
+        type: Sequelize.DECIMAL(10, 2),
       },
       status: {
-        type: Sequelize.ENUM('AVAILABLE', 'RENTED', 'MAINTAINING'),
-        defaultValue: 'AVAILABLE',
+        allowNull: false,
+        defaultValue: 'ONGOING',
+        type: Sequelize.ENUM('ONGOING', 'COMPLETED'),
       },
       createdAt: {
         allowNull: false,
@@ -37,6 +47,6 @@ module.exports = {
     });
   },
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('Cars');
+    await queryInterface.dropTable('Rentals');
   },
 };
