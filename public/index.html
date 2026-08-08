@@ -74,10 +74,12 @@
       const CAR_STATUS = { AVAILABLE: '可用', RENTED: '已租出', MAINTAINING: '维护中' };
       const RENTAL_STATUS = { ONGOING: '进行中', COMPLETED: '已完成' };
 
+      /* 将状态文字渲染为彩色徽章 HTML */
       function badge(label, key) {
         return `<span class="badge badge-${key.toLowerCase()}">${label}</span>`;
       }
 
+      /* 并行请求各接口的计数，填充首页统计卡片 */
       async function loadStats() {
         const [cars, customers, rentals] = await Promise.all([
           api('/cars?pageSize=1'),
@@ -100,6 +102,7 @@
         fill('#rentalCompleted', rentals.pagination.total - ongoing.pagination.total);
       }
 
+      /* 渲染首页“最近车辆”表格；空数据时显示提示 */
       function renderRecentCars(list) {
         const box = document.getElementById('recent-cars');
         if (!list.length) {
@@ -119,6 +122,7 @@
           .join('');
       }
 
+      /* 渲染首页“最近租赁”表格；空数据时显示提示 */
       function renderRecentRentals(list) {
         const box = document.getElementById('recent-rentals');
         if (!list.length) {
@@ -138,6 +142,7 @@
           .join('');
       }
 
+      /* 页面初始化：加载统计与最近记录，各模块独立容错 */
       async function init() {
         try {
           await loadStats();

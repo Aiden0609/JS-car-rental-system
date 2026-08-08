@@ -124,6 +124,7 @@
       let currentPage = 1;
       let editingId = null;
 
+      /* 从筛选表单收集参数并拼接成查询字符串 */
       function buildQuery(page) {
         const data = new FormData(document.getElementById('filter-form'));
         const params = new URLSearchParams();
@@ -135,6 +136,7 @@
         return params.toString();
       }
 
+      /* 按页码加载客户列表并渲染表格与分页 */
       async function load(page = 1) {
         currentPage = page;
         const box = document.getElementById('customer-list');
@@ -148,6 +150,7 @@
         }
       }
 
+      /* 渲染客户表格行；空数据时显示提示 */
       function render(list) {
         const box = document.getElementById('customer-list');
         if (!list.length) {
@@ -173,6 +176,7 @@
           .join('');
       }
 
+      /* 打开“新增客户”弹窗并重置表单 */
       function openCreate() {
         editingId = null;
         document.getElementById('edit-title').textContent = '新增客户';
@@ -180,6 +184,7 @@
         openModal('edit-modal');
       }
 
+      /* 拉取客户详情并回填到编辑弹窗 */
       async function openEdit(id) {
         editingId = id;
         document.getElementById('edit-title').textContent = `编辑客户 #${id}`;
@@ -192,6 +197,7 @@
         openModal('edit-modal');
       }
 
+      /* 拉取客户详情并填充到详情弹窗 */
       async function viewDetail(id) {
         const { customer } = await api(`/customers/${id}`);
         fill('#d-id', customer.id);
@@ -202,6 +208,7 @@
         openModal('detail-modal');
       }
 
+      /* 二次确认后删除客户并刷新列表 */
       async function removeCustomer(id) {
         if (!confirm(`确定删除客户 #${id} 吗？`)) return;
         try {
@@ -213,6 +220,7 @@
         }
       }
 
+      /* 提交客户表单：编辑时走 PUT，否则走 POST */
       document.getElementById('customer-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = e.target;
@@ -236,11 +244,13 @@
         }
       });
 
+      /* 提交筛选表单时回到第 1 页重新加载 */
       document.getElementById('filter-form').addEventListener('submit', (e) => {
         e.preventDefault();
         load(1);
       });
 
+      /* 重置筛选条件并刷新列表 */
       function resetFilters() {
         document.getElementById('filter-form').reset();
         load(1);

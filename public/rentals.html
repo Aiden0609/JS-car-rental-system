@@ -175,6 +175,7 @@
       let editingId = null;
       let returnRental = null;
 
+      /* 将租赁状态码渲染为彩色徽章 HTML */
       function badge(status) {
         return `<span class="badge badge-${status.toLowerCase()}">${RENTAL_STATUS[status] || status}</span>`;
       }
@@ -205,10 +206,12 @@
         return { cars: carsData.cars, customers: customersData.customers };
       }
 
+      /* 车辆状态码 → 中文标签 */
       function STATUS_LABEL(s) {
         return ({ AVAILABLE: '可用', RENTED: '已租出', MAINTAINING: '维护中' })[s] || s;
       }
 
+      /* 从筛选表单收集参数并拼接成查询字符串 */
       function buildQuery(page) {
         const data = new FormData(document.getElementById('filter-form'));
         const params = new URLSearchParams();
@@ -220,6 +223,7 @@
         return params.toString();
       }
 
+      /* 按页码加载租赁列表并渲染表格与分页 */
       async function load(page = 1) {
         currentPage = page;
         const box = document.getElementById('rental-list');
@@ -233,6 +237,7 @@
         }
       }
 
+      /* 渲染租赁表格行；进行中的记录额外显示“归还”按钮 */
       function render(list) {
         const box = document.getElementById('rental-list');
         if (!list.length) {
@@ -269,6 +274,7 @@
           .join('');
       }
 
+      /* 加载客户列表填充筛选下拉框 */
       async function loadFilterCustomers() {
         try {
           const { customers } = await api('/customers?pageSize=1000');
@@ -280,6 +286,7 @@
         }
       }
 
+      /* 打开“发起租赁”弹窗，仅填充当前可用的车辆 */
       async function openCreate() {
         editingId = null;
         document.getElementById('edit-title').textContent = '发起租赁';
@@ -297,6 +304,7 @@
         openModal('edit-modal');
       }
 
+      /* 拉取租赁详情并回填到编辑弹窗 */
       async function openEdit(id) {
         editingId = id;
         document.getElementById('edit-title').textContent = `编辑租赁 #${id}`;
@@ -316,6 +324,7 @@
         openModal('edit-modal');
       }
 
+      /* 打开还车弹窗并展示租赁摘要与日租金 */
       async function openReturn(id) {
         const { rental } = await api(`/rentals/${id}`);
         returnRental = rental;
@@ -334,6 +343,7 @@
         openModal('return-modal');
       }
 
+      /* 提交还车请求，成功后关闭弹窗并刷新列表 */
       async function submitReturn() {
         const dateVal = document.getElementById('return-date').value;
         const body = {};
@@ -348,6 +358,7 @@
         }
       }
 
+      /* 拉取租赁详情并填充到详情弹窗 */
       async function viewDetail(id) {
         const { rental } = await api(`/rentals/${id}`);
         fill('#d-id', rental.id);
@@ -361,6 +372,7 @@
         openModal('detail-modal');
       }
 
+      /* 二次确认后删除租赁记录并刷新列表 */
       async function removeRental(id) {
         if (!confirm(`确定删除租赁记录 #${id} 吗？（进行中的租赁无法删除）`)) return;
         try {
@@ -372,6 +384,7 @@
         }
       }
 
+      /* 提交租赁表单：编辑时走 PUT，否则走 POST（发起租赁） */
       document.getElementById('rental-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = e.target;
@@ -399,11 +412,13 @@
         }
       });
 
+      /* 提交筛选表单时回到第 1 页重新加载 */
       document.getElementById('filter-form').addEventListener('submit', (e) => {
         e.preventDefault();
         load(1);
       });
 
+      /* 重置筛选条件并刷新列表 */
       function resetFilters() {
         document.getElementById('filter-form').reset();
         load(1);

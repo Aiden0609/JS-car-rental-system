@@ -105,6 +105,7 @@ router.delete('/:id', async function (req, res, next) {
   }
 });
 
+/* Find a customer by its id from the request params, throw NotFound if it does not exist */
 async function getCustomer(req) {
   const { id } = req.params;
   const customer = await Customer.findByPk(id);
