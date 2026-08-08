@@ -1,5 +1,6 @@
 const createError = require('http-errors');
 
+/* Uniform success response: { status: true, message, data } with the given HTTP status code */
 function success(res, message, data = {}, code = 200) {
   res.status(code).json({
     status: true,
@@ -8,6 +9,7 @@ function success(res, message, data = {}, code = 200) {
   });
 }
 
+/* Uniform failure response: map the error to a proper HTTP status code and return { status: false, message, errors } */
 function failure(res, error) {
   let statusCode;
   let errors;

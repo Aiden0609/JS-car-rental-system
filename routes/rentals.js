@@ -154,6 +154,7 @@ router.delete('/:id', async function (req, res, next) {
   }
 });
 
+/* Find a rental by its id (with car & customer associations), throw NotFound if it does not exist */
 async function getRental(req) {
   const { id } = req.params;
   const condition = getCondition();
@@ -164,6 +165,7 @@ async function getRental(req) {
   return rental;
 }
 
+/* Shared query condition: exclude raw FK columns, include car & customer associations */
 function getCondition() {
   return {
     attributes: { exclude: ['CarId', 'CustomerId'] },
@@ -182,6 +184,7 @@ function getCondition() {
   };
 }
 
+/* Calculate the number of days between two dates (rounded up), used for cost settlement */
 function getDaysDiff(d1, d2) {
   const d1Dec = new Decimal(d1.getTime().toString());
   const d2Dec = new Decimal(d2.getTime().toString());

@@ -111,7 +111,7 @@ router.put('/:id', async function (req, res, next) {
   }
 });
 
-/* POST '/cars/:id'
+/* DELETE '/cars/:id'
  * Delete a car */
 router.delete('/:id', async function (req, res, next) {
   try {
@@ -127,6 +127,7 @@ router.delete('/:id', async function (req, res, next) {
   }
 });
 
+/* Find a car by its id from the request params, throw NotFound if it does not exist */
 async function getCar(req) {
   const { id } = req.params;
   const car = await Car.findByPk(id);
