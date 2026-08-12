@@ -1,24 +1,23 @@
 # 汽车租赁管理系统（Car Rental Management System）
 
-基于 **Express + Node.js + Sequelize + MySQL** 的租车系统管理端，用于练习环境搭建、数据库迁移与基础的增删改查操作。
+基于 **Express + Node.js + Sequelize + MySQL** 的轻量级租车业务管理平台，聚焦核心业务逻辑与数据建模，采用 RESTful API + 原生前端的分层架构。
 
-> 本项目无登录鉴权、无缓存、无消息队列，属于练习性质项目。
+## 业务建模
 
-## 功能特性
+系统围绕车辆租赁的核心业务流程进行建模，涵盖三个聚合实体：
 
-- **首页概览**：实时统计车辆（总数 / 可用 / 已租出 / 维护中）、客户总数、租赁记录（总数 / 进行中 / 已完成），并展示最近车辆与最近租赁记录。
-- **车辆管理**：车辆的增删改查；支持按品牌、车牌号、状态、日租金范围分页筛选；已租出的车辆不可删除。
-- **客户管理**：客户的增删改查；支持按姓名、电话、驾驶证号分页筛选。
-- **租赁管理**：发起租赁（自动将车辆置为「已租出」）、还车结算（按 `日租金 × 天数` 自动计算费用，车辆恢复「可用」）；支持按状态、客户分页筛选；进行中的租赁不可删除。
+- **Vehicle（车辆）**：管理车辆全生命周期状态流转——`AVAILABLE → RENTED → AVAILABLE`（还车后）或 `MAINTENANCE`（维修）。支持按品牌、车牌号、状态、日租金区间进行多条件分页检索。处于 `RENTED` 状态的车辆受业务规则保护，禁止删除。
+- **Customer（客户）**：维护客户档案与租赁历史。删除客户前校验是否存在未完结（`ONGOING`）租赁，存在时返回 `409 Conflict` 阻止操作，保证数据引用完整性。
+- **Rental（租赁）**：承载租赁业务的核心流程——发起租赁时原子性地将车辆置为 `RENTED`；还车时自动结算费用（`日租金 × 租赁天数`）并将车辆恢复 `AVAILABLE`。状态机仅允许 `ONGOING → COMPLETED` 单向流转。关联查询时 Eager Load 车辆与客户信息。
 
-## 技术栈
+## 技术架构
 
-| 类别 | 技术 |
+| 层次 | 技术选型 |
 | --- | --- |
-| 后端 | Express · Node.js 24.16.0 · Sequelize |
-| 数据库 | MySQL 8.3.0（Docker Desktop） |
-| 前端 | 原生 HTML / CSS / JavaScript（静态页面，无框架） |
-| 其他 | 无缓存 · 无 MQ · 无登录鉴权 |
+| API 层 | Express.js · RESTful 路由设计 · 统一 `{ status, message, data }` 响应封装 |
+| 业务层 | Sequelize ORM · 模型关联（hasMany / belongsTo）· 业务规则校验（状态机、引用完整性） |
+| 数据层 | MySQL 8.3.0 · Docker 容器化部署 · Migration + Seeder 数据库版本管理 |
+| 前端 | 原生 HTML / CSS / JavaScript · 零框架依赖 · 模态弹窗交互 |
 
 ## 项目结构
 
@@ -30,7 +29,7 @@
 ├── models/                 # Sequelize 模型：Car、Customer、Rental
 ├── migrations/             # 数据库迁移脚本
 ├── seeders/                # 种子数据（车辆 / 客户 / 租赁）
-├── routes/                 # 业务路由：cars、customers、rentals（index / users 为脚手架占位）
+├── routes/                 # 业务路由模块：cars、customers、rentals
 ├── utils/responses.js      # 统一成功 / 失败响应封装
 └── public/                 # 前端静态页面
     ├── index.html          # 首页概览
@@ -91,10 +90,10 @@ npm start
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/customers` | 分页查询客户列表，支持 `name`、`phone`、`driversLicense`、`currentPage`、`pageSize` |
-| GET | `/customers/:id` | 查询客户详情 |
+| GET | `/customers/:id` | 查询客户详情（含关联租赁记录） |
 | POST | `/customers` | 新增客户 |
 | PUT | `/customers/:id` | 更新客户 |
-| DELETE | `/customers/:id` | 删除客户 |
+| DELETE | `/customers/:id` | 删除客户（有进行中 ONGOING 租赁时返回 409） |
 
 ### 租赁 `/rentals`
 
@@ -106,8 +105,6 @@ npm start
 | POST | `/rentals/:id/return` | 还车结算（按日租金 × 天数计算费用，车辆恢复 AVAILABLE） |
 | PUT | `/rentals/:id` | 更新租赁 |
 | DELETE | `/rentals/:id` | 删除租赁（进行中 ONGOING 时返回 409） |
-
-> `GET /` 与 `GET /users` 为脚手架占位路由。
 
 ## Bug 报告
 
@@ -151,5 +148,4 @@ document.addEventListener('click', (e) => {
 
 ## 已知待办
 
-- `routes/customers.js`：客户详情接口暂未查询客户的租赁记录（Pending）。
-- `routes/customers.js`：删除客户暂未做软删除与「有进行中订单不可删除」的校验（Pending）。
+- 暂无。

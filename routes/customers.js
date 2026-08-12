@@ -1,5 +1,5 @@
 const express = require('express');
-const { Customer } = require('../models');
+const { Customer, Rental, Car } = require('../models');
 const router = express.Router();
 const { Op } = require('sequelize');
 const { NotFound, Conflict } = require('http-errors');
@@ -55,7 +55,6 @@ router.get('/', async function (req, res, next) {
 router.get('/:id', async function (req, res, next) {
   try {
     const customer = await getCustomer(req);
-    // Pending: query customer rental record
 
     success(res, 'Customer retrieved successfully', { customer });
   } catch (error) {
@@ -96,7 +95,12 @@ router.put('/:id', async function (req, res, next) {
 router.delete('/:id', async function (req, res, next) {
   try {
     const customer = await getCustomer(req);
-    // Pending: 软删除&有ongoing订单不能删除
+    const rentals = customer.rentals;
+    const hasOngoing = rentals.some((rental) => rental.status === 'ONGOING');
+
+    if (hasOngoing) {
+      throw new Conflict('Customer has ongoing rentals');
+    }
     await customer.destroy();
 
     success(res, 'Customer deleted successfully');
@@ -108,11 +112,31 @@ router.delete('/:id', async function (req, res, next) {
 /* Find a customer by its id from the request params, throw NotFound if it does not exist */
 async function getCustomer(req) {
   const { id } = req.params;
-  const customer = await Customer.findByPk(id);
+  const condition = getCondition();
+  const customer = await Customer.findByPk(id, condition);
   if (!customer) {
     throw new NotFound(`Customer with id ${id} not found`);
   }
   return customer;
+}
+
+function getCondition() {
+  return {
+    include: [
+      {
+        model: Rental,
+        as: 'rentals',
+        attributes: [
+          ['id', 'rentalId'],
+          'carId',
+          ['createdAt', 'startDate'],
+          'actualReturnDate',
+          'totalCost',
+          'status',
+        ],
+      },
+    ],
+  };
 }
 
 /* Public function
